@@ -1,0 +1,50 @@
+{
+  "name": "principalbm",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "prisma generate && next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "node --env-file=.env --import tsx scripts/seed.ts",
+    "admin:create": "node --env-file=.env --import tsx scripts/create-admin.ts",
+    "worker": "node --env-file=.env --import tsx scripts/worker.ts",
+    "test": "node --import tsx --test tests/rules.test.ts",
+    "test:integration": "node --env-file=.env --import tsx --test tests/workflow.test.ts",
+    "test:local": "node --import tsx scripts/test-local.ts",
+    "db:dev": "node --import tsx scripts/dev-db.ts",
+    "test:http": "node --import tsx scripts/test-local.ts --http",
+    "format": "prettier --write app components lib scripts tests docs README.md",
+    "format:check": "prettier --check app components lib scripts tests docs README.md"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "better-auth": "^1.6.25",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
+    "next": "16.3.5",
+    "radix-ui": "^1.4.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.4.6",
+    "@electric-sql/pglite-socket": "0.1.6",
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "prettier": "^3.6.2",
+    "prisma": "6.19.3",
+    "tailwindcss": "^4.1.18",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

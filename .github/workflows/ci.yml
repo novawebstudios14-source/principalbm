@@ -1,0 +1,42 @@
+name: Validar CRM
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: crm_test
+          POSTGRES_PASSWORD: ephemeral_test_password
+          POSTGRES_DB: crm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crm_test -d crm_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://crm_test:ephemeral_test_password@localhost:5432/crm_test?schema=public&connection_limit=5
+      BETTER_AUTH_SECRET: ci-only-not-for-production-secret-32-characters
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+      CHECKPOINT_DISABLE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm test
+      - name: Integração em PostgreSQL com conexões concorrentes
+        run: node --import tsx --test tests/workflow.test.ts
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:http

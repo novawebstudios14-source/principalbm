@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  sessions      Session[]
+  accounts      Account[]
+  members       Member[]
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  SELLER
+  MARKETING
+}
+
+enum OpportunityStatus {
+  NEW
+  REVIEW
+  APPROVAL
+  SENT
+  SERVICE
+  CONVERTED
+  LOST
+  IGNORED
+}
+
+enum ConversationStatus {
+  APPROVAL
+  QUEUED
+  AWAITING_CUSTOMER
+  HUMAN_SERVICE
+  CLOSED
+}
+
+enum MessageStatus {
+  DRAFT
+  QUEUED
+  MOCK_SENT
+  SENT
+  DELIVERED
+  RECEIVED
+  CANCELLED
+  FAILED
+}
+
+model Organization {
+  id        String     @id @default(cuid())
+  name      String
+  createdAt DateTime   @default(now()) @db.Timestamptz(3)
+  members   Member[]
+  customers Customer[]
+  jobs      Job[]
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role         @default(SELLER)
+  customers      Customer[]
+
+  @@unique([organizationId, userId])
+  @@unique([organizationId, id])
+}
+
+model Customer {
+  id              String          @id @default(cuid())
+  organizationId  String
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String
+  phone           String
+  email           String?
+  birthDate       DateTime?       @db.Date
+  city            String?
+  source          String?
+  notes           String          @default("")
+  ownerId         String
+  owner           Member          @relation(fields: [organizationId, ownerId], references: [organizationId, id])
+  whatsappConsent Boolean         @default(false)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
+  pregnancies     Pregnancy[]
+  children        Child[]
+  purchases       Purchase[]
+  events          JourneyEvent[]
+  opportunities   Opportunity[]
+  conversation    Conversation?
+  timeline        TimelineEvent[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, phone])
+  @@index([organizationId, ownerId])
+}
+
+model Pregnancy {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String
+  customer       Customer @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Cascade)
+  dueDate        DateTime @db.Date
+  status         String   @default("ACTIVE")
+  notes          String   @default("")
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, customerId])
+}
+
+model Child {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String
+  customer       Customer @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Cascade)
+  name           String
+  birthDate      DateTime @db.Date
+  gender         String?
+  clothingSize   String?
+  shoeSize       String?
+  notes          String   @default("")
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, customerId])
+}
+
+model Purchase {
+  id             String       @id @default(cuid())
+  organizationId String
+  customerId     String
+  customer       Customer     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Cascade)
+  date           DateTime     @db.Date
+  total          Decimal      @db.Decimal(12, 2)
+  items          String
+  category       String?
+  sellerName     String
+  requestKey     String       @unique
+  opportunityId  String?      @unique
+  opportunity    Opportunity? @relation(fields: [organizationId, customerId, opportunityId], references: [organizationId, customerId, id])
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@unique([organizationId, customerId, opportunityId])
+  @@index([organizationId, customerId, date])
+}
+
+model JourneyEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  customerId     String
+  customer       Customer     @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Cascade)
+  key            String
+  rule           String
+  reason         String
+  occurredAt     DateTime     @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  opportunity    Opportunity?
+
+  @@unique([organizationId, key])
+  @@unique([organizationId, customerId, id])
+}
+
+model Opportunity {
+  id               String            @id @default(cuid())
+  organizationId   String
+  customerId       String
+  customer         Customer          @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Cascade)
+  eventId          String            @unique
+  event            JourneyEvent      @relation(fields: [organizationId, customerId, eventId], references: [organizationId, customerId, id])
+  reason           String
+  action           String
+  category         String
+  score            Int
+  scoreReason      String
+  priority         String
+  status           OpportunityStatus @default(APPROVAL)
+  suggestedMessage String
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+  messages         Message[]
+  purchase         Purchase?
+
+  @@unique([organizationId, customerId, id])
+  @@unique([organizationId, customerId, eventId])
+  @@index([organizationId, status])
+}
+
+model Conversation {
+  id                String             @id @default(cuid())
+  organizationId    String
+  customerId        String             @unique
+  customer          Customer           @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Cascade)
+  status            ConversationStatus @default(APPROVAL)
+  automationStopped Boolean            @default(false)
+  firstOutboundAt   DateTime?          @db.Timestamptz(3)
+  repliedAt         DateTime?          @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+  messages          Message[]
+
+  @@unique([organizationId, customerId, id])
+  @@unique([organizationId, customerId])
+  @@index([organizationId, status])
+}
+
+model Message {
+  id               String        @id @default(cuid())
+  organizationId   String
+  customerId       String
+  conversationId   String
+  conversation     Conversation  @relation(fields: [organizationId, customerId, conversationId], references: [organizationId, customerId, id], onDelete: Cascade)
+  opportunityId    String?
+  opportunity      Opportunity?  @relation(fields: [organizationId, customerId, opportunityId], references: [organizationId, customerId, id])
+  direction        String
+  body             String
+  status           MessageStatus
+  firstOutboundKey String?       @unique
+  providerId       String?
+  approvedBy       String?
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([organizationId, providerId])
+  @@index([organizationId, conversationId, createdAt])
+}
+
+model TimelineEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String
+  customer       Customer @relation(fields: [organizationId, customerId], references: [organizationId, id], onDelete: Cascade)
+  type           String
+  title          String
+  detail         String?
+  actorName      String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, customerId, createdAt])
+}
+
+model Job {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String       @unique
+  kind           String
+  subjectId      String?
+  dueAt          DateTime     @default(now()) @db.Timestamptz(3)
+  leasedUntil    DateTime?    @db.Timestamptz(3)
+  attempts       Int          @default(0)
+  finishedAt     DateTime?    @db.Timestamptz(3)
+  lastError      String?
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([finishedAt, dueAt])
+}
